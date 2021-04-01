@@ -63,7 +63,7 @@ jobs:
           build-args: |
             RUNNER_VERSION=${{ env.RUNNER_VERSION }}
             DOCKER_VERSION=${{ env.DOCKER_VERSION }}
-            TARGETPLATFORM=linux
+            TARGETPLATFORM=linux/amd64
           image: ${{ matrix.name }}
           tags: v${{ env.RUNNER_VERSION }} v${{ env.RUNNER_VERSION }}-${{ steps.vars.outputs.sha_short }} latest
 
