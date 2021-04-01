@@ -63,6 +63,7 @@ jobs:
           file: ./runner/${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: false
+          load: true
           build-args: |
             RUNNER_VERSION=${{ env.RUNNER_VERSION }}
             DOCKER_VERSION=${{ env.DOCKER_VERSION }}
