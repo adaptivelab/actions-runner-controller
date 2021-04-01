@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM docker.io/ubuntu:18.04
 
 ARG TARGETPLATFORM
 ARG RUNNER_VERSION=2.274.2

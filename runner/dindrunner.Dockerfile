@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM docker.io/ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 # Dev + DinD dependencies
