@@ -64,7 +64,7 @@ jobs:
         with:
           context: ./runner
           file: ./runner/${{ matrix.dockerfile }}
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
           push: true
@@ -76,3 +76,8 @@ jobs:
           repository: ${{ env.DOCKER_QUAY_NAMESPACE }}/${{ matrix.name }}
           username: ${{ secrets.DOCKER_QUAY_ROBOT_USERNAME }}
           password: ${{ secrets.DOCKER_QUAY_ROBOT_PASSWORD }}
+
+      - name: Move Cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
