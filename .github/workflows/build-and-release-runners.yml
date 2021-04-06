@@ -47,12 +47,11 @@ jobs:
 
       - name: Build ${{ matrix.name }} Image Locally
         uses: docker/build-push-action@v1
-        if: github.event.pull_request.merged != true
         with:
           context: ./runner
           file: ./runner/${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
-          push: false
+          load: true
           build-args: |
             RUNNER_VERSION=${{ env.RUNNER_VERSION }}
             DOCKER_VERSION=${{ env.DOCKER_VERSION }}
