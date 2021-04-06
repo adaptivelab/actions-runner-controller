@@ -10,13 +10,20 @@ on:
       - reopened
     paths:
       - 'runner/**'
-      - .github/workflows/build-and-release-runners.yml
+      - '.github/workflows/build-and-release-runners.yml'
   workflow_dispatch:
 
+env:
+  RUNNER_VERSION: 2.277.1
+  DOCKER_VERSION: 19.03.12
+  DOCKER_QUAY_REGISTRY: quay.io
+  DOCKER_QUAY_NAMESPACE: sundae
+
 jobs:
-  build:
+  build_local:
     runs-on: ubuntu-latest
-    name: Build ${{ matrix.name }}
+    name: Build ${{ matrix.name }} Locally
+    if: github.event.pull_request.merged != true
     strategy:
       matrix:
         include:
@@ -24,11 +31,6 @@ jobs:
             dockerfile: Dockerfile
           - name: actions-runner-dind
             dockerfile: dindrunner.Dockerfile
-    env:
-      RUNNER_VERSION: 2.277.1
-      DOCKER_VERSION: 19.03.12
-      DOCKER_QUAY_REGISTRY: quay.io
-      DOCKER_QUAY_NAMESPACE: sundae
     steps:
       - name: Set Outputs
         id: vars
@@ -52,21 +54,45 @@ jobs:
           file: ./runner/${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           load: true
+          push: false
           build-args: |
             RUNNER_VERSION=${{ env.RUNNER_VERSION }}
             DOCKER_VERSION=${{ env.DOCKER_VERSION }}
           tags: v${{ env.RUNNER_VERSION }}, v${{ env.RUNNER_VERSION }}-${{ steps.vars.outputs.sha_short }}, latest
+          registry: ${{ env.DOCKER_QUAY_REGISTRY }}
+          repository: ${{ env.DOCKER_QUAY_NAMESPACE }}/${{ matrix.name }}
+          username: ${{ secrets.DOCKER_QUAY_ROBOT_USERNAME }}
+          password: ${{ secrets.DOCKER_QUAY_ROBOT_PASSWORD }}
 
-      - name: Test Local ${{ matrix.name }} Image
-        id: image-test
-        run: echo ::set-output name=image_status::$(docker run ${{ matrix.name }}:latest)
+  build_push:
+    runs-on: ubuntu-latest
+    name: Build and Push ${{ matrix.name }}
+    if: github.event.pull_request.merged == true
+    strategy:
+      matrix:
+        include:
+          - name: actions-runner
+            dockerfile: Dockerfile
+          - name: actions-runner-dind
+            dockerfile: dindrunner.Dockerfile
+    steps:
+      - name: Set Outputs
+        id: vars
+        run: echo ::set-output name=sha_short::${GITHUB_SHA::7}
 
-      - name: TEST - show output of previous step
-        run: echo ${{ steps.image-test.outputs.image_status }}
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v1.0.1
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v1.1.1
+        with:
+          version: latest
 
       - name: Build ${{ matrix.name }} Image and push to Quay
         uses: docker/build-push-action@v1
-        if: github.event.pull_request.merged == true
         with:
           context: ./runner
           file: ./runner/${{ matrix.dockerfile }}
