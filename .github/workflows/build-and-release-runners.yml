@@ -50,15 +50,7 @@ jobs:
         with:
           version: latest
 
-      - name: Cache Docker Layers
-        uses: actions/cache@v2.1.4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Build Image and push to Quay
+      - name: Build ${{ matrix.name }} Image and push to Quay
         uses: docker/build-push-action@v1
         id: docker-build
         with:
