@@ -10,28 +10,38 @@ on:
       - reopened
     paths:
       - 'runner/**'
-      - '.github/workflows/build-and-release-runners.yml'
-      - 'Dockerfile'
-  workflow_dispatch:
-
-env:
-  RUNNER_VERSION: 2.277.1
-  DOCKER_VERSION: 19.03.12
-  DOCKER_QUAY_REGISTRY: quay.io
-  DOCKER_QUAY_NAMESPACE: sundae
+      - .github/workflows/build-and-release-runners.yml
+  push:
+    branches:
+      - master
+    paths:
+      - runner/patched/*
+      - runner/Dockerfile
+      - runner/Dockerfile.ubuntu.1804
+      - runner/Dockerfile.dindrunner
+      - runner/entrypoint.sh
+      - .github/workflows/build-and-release-runners.yml
 
 jobs:
   build_local:
     runs-on: ubuntu-latest
-    name: Build ${{ matrix.name }} Locally
-    if: github.event.pull_request.merged != true
+    name: Build ${{ matrix.name }}-ubuntu-${{ matrix.os-version }}
     strategy:
       matrix:
         include:
           - name: actions-runner
+            os-version: 20.04
             dockerfile: Dockerfile
+          - name: actions-runner
+            os-version: 18.04
+            dockerfile: Dockerfile.ubuntu.1804
           - name: actions-runner-dind
-            dockerfile: dindrunner.Dockerfile
+            os-version: 20.04
+            dockerfile: Dockerfile.dindrunner
+    env:
+      RUNNER_VERSION: 2.277.1
+      DOCKER_VERSION: 19.03.12
+      DOCKERHUB_USERNAME: ${{ github.repository_owner }}
     steps:
       - name: Set Outputs
         id: vars
@@ -65,56 +75,56 @@ jobs:
           username: ${{ secrets.DOCKER_QUAY_ROBOT_USERNAME }}
           password: ${{ secrets.DOCKER_QUAY_ROBOT_PASSWORD }}
 
-      - name: Build actions-runner-controller Image Locally
-        uses: docker/build-push-action@v1
+      - name: Build and Push Versioned Tags
+        uses: docker/build-push-action@v2
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./runner
+          file: ./runner/${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
-          load: true
-          push: false
+          push: ${{ github.event_name != 'pull_request' }}
           build-args: |
             RUNNER_VERSION=${{ env.RUNNER_VERSION }}
             DOCKER_VERSION=${{ env.DOCKER_VERSION }}
-          tags: v${{ env.RUNNER_VERSION }}, v${{ env.RUNNER_VERSION }}-${{ steps.vars.outputs.sha_short }}, latest
-          registry: ${{ env.DOCKER_QUAY_REGISTRY }}
-          repository: ${{ env.DOCKER_QUAY_NAMESPACE }}/actions-runner-controller
-          username: ${{ secrets.DOCKER_QUAY_ROBOT_USERNAME }}
-          password: ${{ secrets.DOCKER_QUAY_ROBOT_PASSWORD }}
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.name }}:v${{ env.RUNNER_VERSION }}-ubuntu-${{ matrix.os-version }}
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.name }}:v${{ env.RUNNER_VERSION }}-ubuntu-${{ matrix.os-version }}-${{ steps.vars.outputs.sha_short }}
 
-  build_push:
+  latest-tags:
     runs-on: ubuntu-latest
-    name: Build and Push ${{ matrix.name }}
-    if: github.event.pull_request.merged == true
+    name: Build ${{ matrix.name }}-latest
     strategy:
       matrix:
         include:
           - name: actions-runner
             dockerfile: Dockerfile
           - name: actions-runner-dind
-            dockerfile: dindrunner.Dockerfile
+            dockerfile: Dockerfile.dindrunner
+    env:
+      RUNNER_VERSION: 2.277.1
+      DOCKER_VERSION: 19.03.12
+      DOCKERHUB_USERNAME: ${{ github.repository_owner }}
     steps:
-      - name: Set Outputs
-        id: vars
-        run: echo ::set-output name=sha_short::${GITHUB_SHA::7}
 
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v1.0.1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v1.1.1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
         with:
           version: latest
 
-      - name: Login to Quay.io
-        run: |
-          echo "${{ secrets.DOCKER_QUAY_ROBOT_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_QUAY_ROBOT_USERNAME }} --password-stdin ${{ env.DOCKER_QUAY_REGISTRY }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        if: ${{ github.event_name == 'push' || github.event_name == 'release' }}
+        with:
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
 
-      - name: Build ${{ matrix.name }} Image and push to Quay
-        uses: docker/build-push-action@v1
+      - name: Build and Push Latest Tag
+        uses: docker/build-push-action@v2
         with:
           context: ./runner
           file: ./runner/${{ matrix.dockerfile }}
@@ -139,8 +149,5 @@ jobs:
           build-args: |
             RUNNER_VERSION=${{ env.RUNNER_VERSION }}
             DOCKER_VERSION=${{ env.DOCKER_VERSION }}
-          tags: v${{ env.RUNNER_VERSION }}, v${{ env.RUNNER_VERSION }}-${{ steps.vars.outputs.sha_short }}, latest
-          registry: ${{ env.DOCKER_QUAY_REGISTRY }}
-          repository: ${{ env.DOCKER_QUAY_NAMESPACE }}/actions-runner-controller
-          username: ${{ secrets.DOCKER_QUAY_ROBOT_USERNAME }}
-          password: ${{ secrets.DOCKER_QUAY_ROBOT_PASSWORD }}
+          tags: |
+            ${{ env.DOCKERHUB_USERNAME }}/${{ matrix.name }}:latest

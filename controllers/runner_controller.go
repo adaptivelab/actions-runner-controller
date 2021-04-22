@@ -644,12 +644,17 @@ func (r *RunnerReconciler) newPod(runner v1alpha1.Runner) (corev1.Pod, error) {
 
 	runnerVolumeName := "runner"
 	runnerVolumeMountPath := "/runner"
+	runnerVolumeEmptyDir := &corev1.EmptyDirVolumeSource{}
+
+	if runner.Spec.VolumeSizeLimit != nil {
+		runnerVolumeEmptyDir.SizeLimit = runner.Spec.VolumeSizeLimit
+	}
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes,
 		corev1.Volume{
 			Name: runnerVolumeName,
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+				EmptyDir: runnerVolumeEmptyDir,
 			},
 		},
 	)
@@ -811,6 +816,10 @@ func (r *RunnerReconciler) newPod(runner v1alpha1.Runner) (corev1.Pod, error) {
 
 	if runner.Spec.TerminationGracePeriodSeconds != nil {
 		pod.Spec.TerminationGracePeriodSeconds = runner.Spec.TerminationGracePeriodSeconds
+	}
+
+	if len(runner.Spec.HostAliases) != 0 {
+		pod.Spec.HostAliases = runner.Spec.HostAliases
 	}
 
 	if err := ctrl.SetControllerReference(&runner, &pod, r.Scheme); err != nil {

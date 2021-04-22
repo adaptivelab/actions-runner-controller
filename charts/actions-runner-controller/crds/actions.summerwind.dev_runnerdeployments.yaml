@@ -607,6 +607,20 @@ spec:
                       type: array
                     group:
                       type: string
+                    hostAliases:
+                      items:
+                        description: HostAlias holds the mapping between IP and hostnames that will be injected as an entry in the pod's hosts file.
+                        properties:
+                          hostnames:
+                            description: Hostnames for the above IP address.
+                            items:
+                              type: string
+                            type: array
+                          ip:
+                            description: IP address of the host file entry.
+                            type: string
+                        type: object
+                      type: array
                     image:
                       type: string
                     imagePullPolicy:
@@ -795,6 +809,12 @@ spec:
                           - name
                         type: object
                       type: array
+                    volumeSizeLimit:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
                     volumes:
                       items:
                         description: Volume represents a named volume in a pod that may be accessed by any container in the pod.
